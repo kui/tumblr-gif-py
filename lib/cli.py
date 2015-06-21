@@ -2,24 +2,15 @@ import sys, argparse, re
 import gif, frames
 
 def main():
-    parser = argparse.ArgumentParser()
-
-    setup_parser(parser)
-
+    parser = build_parser()
     args = parser.parse_args()
-
-    for k in sorted(args.__dict__.keys(), key=lambda k: len(k)):
-        if k == "func":
-            continue
-        elif k == "imgs":
-            print("#imgs:\t{}".format(str(len(args.imgs))))
-        else:
-            print("{}:\t{}".format(k, str(args.__dict__[k])))
-    print("----")
-
+    dump_args(args)
     args.func(args)
 
-def setup_parser(parser):
+def build_parser():
+    parser = argparse.ArgumentParser(
+        description="GIF generator for tubmlr GIF specs")
+
     subparser = parser.add_subparsers(title="commands")
     parser_frames = subparser.add_parser("frames",
                                          help="Generate frames")
@@ -64,10 +55,24 @@ def setup_parser(parser):
                             help="remove \"+dither\" option from imagemagick \"convert\"")
     parser_gif.add_argument("-c", "--crop", metavar="WxH+X+Y",
                             help="a crop value for ImageMagick \"-crop\" option")
-    parser_gif.add_argument("-L", "--loop-effect", metavar="TYPE[,FRAMES[,DELAY]]", type=str,
-                            help="a string to specify effect type, # of frames and delay")
+    parser_gif.add_argument("-L", "--loop-effect",
+                            metavar="TYPE[,FRAMES[,DELAY]]", type=str,
+                            help="a string to specify effect type, # of "+
+                            "frames and delay. TYPE: static, cross, reverse")
     parser_gif.add_argument("-D", "--delay-factor", metavar="N", type=int, default=3,
-                            help="a factor for delay")
+                            help="a factor for delay. The delay of "+
+                            "generated GIF is interval * delay_factor msec")
+    return parser
+
+def dump_args(args):
+    for k in sorted(args.__dict__.keys(), key=lambda k: len(k)):
+        if k == "func":
+            continue
+        elif k == "imgs":
+            print("#imgs:\t{}".format(str(len(args.imgs))))
+        else:
+            print("{}:\t{}".format(k, str(args.__dict__[k])))
+    print("----")
 
 if __name__ == "__main__":
     main()
