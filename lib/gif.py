@@ -2,8 +2,7 @@ import os, re, subprocess
 from math import sqrt
 from color import print_g, print_r
 
-GEN_BLENDS_PATTERN = "__blended-%03d.png"
-RM_BLENDS_PATTERN = r"__blended-\d+.png$"
+import loop_effect as le
 
 UNITS = {
     "B":  pow(1024.0, 0),
@@ -12,19 +11,25 @@ UNITS = {
     "GB": pow(1024.0, 3)
 }
 
+# FIXME refactor because of too big block
 def main(args):
     normalize_args(args)
 
     basedir = os.path.dirname(args.imgs[0])
 
-    rm_blends(basedir)
+    le.delete_blends(basedir)
 
-    imgs = [f for f in args.imgs if not is_blend(f)]
+    imgs = [f for f in args.imgs if not le.is_blend(f)]
+    # thin out with interval
     imgs = [imgs[i] for i in range(0, len(imgs)) if i % args.interval == 0]
 
-    generate_loop_frames(imgs, basedir, args)
+    if args.loop_effect is not None:
+        args.loop_effect.generate(imgs, basedir)
 
-    print_g("frames: {}".format(len(imgs + get_all_blends(basedir))))
+    n_imgs = len(imgs)
+    if args.loop_effect is not None and args.loop_effect.imgs != []:
+        n_imgs += len(args.loop_effect.imgs)
+    print_g("frames: {}".format(n_imgs))
 
     width = args.init_width
     if args.max_side < args.init_width:
@@ -63,50 +68,16 @@ def normalize_args(args):
     if args.max_side is None:
         args.max_side = args.init_width
     if args.loop_effect is not None:
-        args.loop_effect = parse_loop_effect(args.loop_effect)
+        delay = get_delay(args)
+        args.loop_effect = le.parse_loop_effect(args.loop_effect, delay)
     if args.init_width is None:
         args.init_width = args.max_side
     args.max_size = parse_size_fmt(args.max_size)
-
-def parse_loop_effect(loop_effect):
-    arr = loop_effect.split(",")
-    ltype, lframes, ldelay = (arr + [None]*2)[:3]
-
-    if ltype is None or ltype == "":
-        raise "Invalid first arg of -L/--loop-effect: {}".format(loop_effect)
-    if lframes is not None and not re.match(r"^\d+$", lframes):
-        raise "Invalid second arg of -L/--loop-effect: {}".format(loop_effect)
-    if ldelay is not None and not re.match(r"^\d+$", lframes):
-        raise "Invalid third arg of -L/--loop-effect: {}".format(loop_effect)
-
-    lframes = int(lframes)
-    if ldelay is not None:
-        ldelay = int(ldelay)
-
-    return ltype, lframes, ldelay
 
 def parse_size_fmt(size):
     f = float(re.search(r"\s*[\d\.]+", size).group(0))
     unit = re.search(r"([gmk]?b)\s*$", size, re.IGNORECASE).group(1)
     return f * UNITS[unit]
-
-def rm_blends(basedir):
-    for f in get_all_blends(basedir):
-        print("rm {}".format(f))
-        os.remove(f)
-
-def generate_loop_frames(imgs, basedir, args):
-    if args.loop_effect is None:
-        return
-
-    ltype, lframes, _ = args.loop_effect
-
-    if ltype == "static":
-        generate_blends(imgs, basedir, lframes)
-    elif ltype == "cross":
-        generate_cross_blends(imgs, basedir, lframes)
-    else:
-        raise "Unknown loop type"
 
 def parse_crop_width(c):
     arr = c.split("x")
@@ -119,14 +90,17 @@ def parse_crop_width(c):
 
     raise """Invalid "crop" format"""
 
+def get_delay(args):
+    return args.interval * args.delay_factor
 
+# FIXME refactor because of too big block
 def generate_gif(imgs, width, basedir, args):
-    delay = args.interval * args.delay_factor
-
     cmd = [
         "convert",
         "-loop", "0"
     ]
+
+    delay = get_delay(args)
 
     if args.first_delay is not None:
         cmd += [
@@ -144,14 +118,8 @@ def generate_gif(imgs, width, basedir, args):
 
     cmd += [imgs[-1]]
 
-    blends = get_all_blends(basedir)
-    if blends != []:
-        _, _, ldelay = args.loop_effect
-        if ldelay is not None:
-            cmd += ["-delay", str(ldelay)]
-        elif args.last_delay is not None:
-            cmd += ["-delay", str(delay)]
-        cmd += blends
+    if args.loop_effect is not None:
+        cmd += args.loop_effect.get_convert_args_fragments()
 
     if not args.dither:
         cmd += ["+dither"]
@@ -213,52 +181,9 @@ def get_pretty_size(size):
         s = float(size) / UNITS[u]
         if 1 < s < 1024:
             return "%.3f%s" % (s, u)
-    raise "unreachable block"
+    raise "Unreachable block"
 
 def get_sides(gif):
     cmd = ["identify", "-format", "%[fx:w]x%[fx:h],", gif]
     out = subprocess.check_output(cmd)
     return map(int, re.split(r"[x,]", out)[:2])
-
-def get_all_blends(basedir):
-    files = os.listdir(basedir)
-    blends = [os.path.join(basedir, f) for f in files if is_blend(f)]
-    return sorted(blends)
-
-def is_blend(img):
-    return re.search(RM_BLENDS_PATTERN, img)
-
-def generate_blends(imgs, basedir, n):
-    if n is None:
-        raise "require loop effect frames"
-    step = 100 / (n + 1)
-    first = imgs[0]
-    last  = imgs[-1]
-    for i in range(0, n):
-        blend(first, last, basedir, (i + 1) * step)
-
-def generate_cross_blends(imgs, basedir, n):
-    if n is None:
-        raise "require loop effect frames"
-    step = 100 / (n + 1)
-    for i in range(0, n):
-        last_i = - n + i
-        first = imgs[i]
-        last  = imgs[last_i]
-        blend(first, last, basedir, (i + 1) * step)
-
-        imgs[i] = None
-        imgs[last_i] = None
-
-    while imgs.count(None) != 0:
-        imgs.remove(None)
-
-def blend(img1, img2, basedir, ratio):
-    out = os.path.join(basedir, GEN_BLENDS_PATTERN % int(ratio))
-    cmd = [
-        "composite",
-        "-blend", str(ratio),
-        img1, img2, out
-    ]
-    print("exec: {}".format(" ".join(cmd)))
-    subprocess.check_call(cmd)
