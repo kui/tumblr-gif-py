@@ -73,9 +73,11 @@ def dump_frames(args, v_info):
 
     if args.width != 0:
         if v_info["dar"] is not None:
-            src_width, src_height = map(int, v_info["dar"].split(":"))
+            src_width, src_height = v_info["dar"].split(":")
         else:
             src_width, src_height = map(v_info.get, ["width", "height"])
+
+        src_width, src_height = map(int, [src_width, src_height])
 
         width = args.width
         height = (args.width * src_height) / src_width
