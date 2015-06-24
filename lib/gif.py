@@ -150,7 +150,7 @@ def get_next_width(args):
     size = os.path.getsize(args.gif)
 
     if size >= args.max_size:
-        w = sqrt(args.max_size / size) * width
+        w = sqrt(float(args.max_size) * width * width / size)
         return int(w / 4) * 4 # round 4 multiple num
 
     if height > width:
