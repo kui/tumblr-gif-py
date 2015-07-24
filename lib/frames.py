@@ -1,5 +1,6 @@
 import subprocess, re, os, shutil
 from color import print_g
+from util import find_executable
 
 def main(args):
     v_info = get_video_info(args.video)
@@ -17,7 +18,7 @@ def main(args):
 
 def get_video_info(video):
     cmd = [
-        "avprobe",
+        find_executable("avprobe", "ffprobe"),
         "-loglevel", "error",
         "-show_streams",
         "-show_format_entry", "width",
@@ -62,7 +63,7 @@ def dump_frames(args, v_info):
         frame_rate = args.frame_rate
 
     cmd = [
-        "avconv",
+        find_executable("avconv", "ffmpeg"),
         "-loglevel", "info",
         "-r", str(frame_rate),
         "-i", args.video,
@@ -90,6 +91,9 @@ def dump_frames(args, v_info):
     subprocess.check_call(cmd)
 
 def open_dir(directory):
-    cmd = ["xdg-open", directory]
+    cmd = [
+        find_executable("xdg-open", "open"),
+        directory
+    ]
     print("exec: {}".format(" ".join(cmd)))
     subprocess.check_call(cmd, stderr=subprocess.PIPE)
