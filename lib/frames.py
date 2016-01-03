@@ -1,4 +1,4 @@
-import subprocess, re, os, shutil
+import subprocess, re, os, shutil, json
 from color import print_g
 
 def main(args):
@@ -18,30 +18,19 @@ def main(args):
 def get_video_info(video):
     cmd = [
         "avprobe",
+        "-of", "json",
         "-loglevel", "error",
         "-show_streams",
-        "-show_format_entry", "width",
-        "-show_format_entry", "height",
-        "-show_format_entry", "display_aspect_ratio",
-        "-show_format_entry", "avg_frame_rate",
         video
     ]
     print("exec: {}".format(" ".join(cmd)))
     out = subprocess.check_output(cmd, stderr=subprocess.PIPE)
+    out = json.loads(out)
 
-    info = {}
-    for line in out.split(os.linesep):
-        kv = line.split("=")
-        if len(kv) == 1:
-            k = kv[0]
-            v = None
-        elif len(kv) == 2:
-            k, v = kv
-        else:
-            raise "Invalid line format: {}".format(kv)
-        if k not in info:
-            info[k] = v
-
+    for stream in out["streams"]:
+        if stream["codec_type"] != "video":
+            continue
+        info = stream
     info["dar"] = info.get("display_aspect_ratio")
     info["frame_rate"] = parse_frame_rate(info.get("avg_frame_rate"))
 
