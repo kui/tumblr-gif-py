@@ -44,23 +44,30 @@ def main(args):
 
     print_g("init width: {}".format(width))
 
-    width_history = []
+    width_history = {}
     while True:
         generate_gif(imgs, width, basedir, args)
 
-        if is_valid_gif(args):
+        size = os.path.getsize(args.gif)
+        if is_valid_gif(args, size):
+            width_history[width] = size
             print_g("Success")
             break
 
-        width = get_next_width(args)
-        print_g("next width: {}".format(width))
+        next_width = get_next_width(args, size)
+        print_g("next width: {}".format(next_width))
 
-        if width in width_history:
+        if next_width in width_history:
             print_g("gif width convergence: {}x".format(width))
             print_g("Success")
             break
 
-        width_history.append(width)
+        width_history[width] = size
+        width = next_width
+
+    print("width-size history [{}]:".format(len(width_history)))
+    for k in sorted(width_history.keys(), reverse=True):
+        print("  %5d: %5s" % (k, get_pretty_size(width_history[k])))
 
     open_gif(args.gif)
 
@@ -145,9 +152,8 @@ def open_gif(gif):
     print("exec: {}".format(" ".join(cmd)))
     subprocess.check_call(cmd, stderr=subprocess.PIPE)
 
-def get_next_width(args):
+def get_next_width(args, size):
     width, height = get_sides(args.gif)
-    size = os.path.getsize(args.gif)
 
     if size >= args.max_size:
         w = sqrt(float(args.max_size) * width * width / size)
@@ -158,13 +164,11 @@ def get_next_width(args):
 
     return args.max_side
 
-def is_valid_gif(args):
+def is_valid_gif(args, size):
     width, height = get_sides(args.gif)
 
     if width > args.max_side or height > args.max_side:
         return False
-
-    size = os.path.getsize(args.gif)
 
     print_g("gif size: {}".format(get_pretty_size(size)))
 
