@@ -1,6 +1,7 @@
 import os, re, subprocess
 from math import sqrt
 from color import print_g, print_r
+from util import find_executable
 
 import loop_effect as le
 
@@ -148,7 +149,10 @@ def generate_gif(imgs, width, basedir, args):
     subprocess.check_call(cmd)
 
 def open_gif(gif):
-    cmd = ["xdg-open", gif]
+    cmd = [
+        find_executable("xdg-open", "open"),
+        gif
+    ]
     print("exec: {}".format(" ".join(cmd)))
     subprocess.check_call(cmd, stderr=subprocess.PIPE)
 
