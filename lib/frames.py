@@ -53,10 +53,10 @@ def dump_frames(args, v_info):
     cmd = [
         "avconv",
         "-loglevel", "info",
-        "-r", str(frame_rate),
+        "-ss", str(args.offset),
         "-i", args.video,
         "-filter:v", "yadif",
-        "-ss", str(args.offset),
+        "-r", str(frame_rate),
         "-t", str(args.duration)
     ]
 
