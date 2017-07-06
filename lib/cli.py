@@ -41,7 +41,7 @@ def build_parser():
     parser_gif.add_argument("-w", "--init-width", metavar="N", type=int,
                             help="an initial gif width (default: max-side)")
     parser_gif.add_argument("-s", "--max-size", metavar="N", type=str,
-                            default="2MB", help="an max gif size")
+                            default="3MB", help="an max gif size")
     parser_gif.add_argument("-S", "--max-side", metavar="N", type=int,
                             default=540, help="an max gif width and height")
     parser_gif.add_argument("-F", "--fuzz", metavar="N", type=float,
